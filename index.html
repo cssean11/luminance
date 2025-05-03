@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="Logo.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="style.css">
+    <title>Luminance 2.0</title>
+</head>
+
+<title>Luminance</title>
+    <script type="module" crossorigin="" src="js/index-CReThPys.js"></script>
+    <link rel="stylesheet" crossorigin="" href="css/index-T0--RNUp.css">
+    <style>
+        /* Inline CSS for centering the content and adding a background image */
+        .center-heading-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+            background-image: url('https://wallpapers.com/images/hd/genshin-impact-lumine-playing-piano-7mvmj6fuibi6aqp3.jpg'); /* Update this with the path to your Genshin Impact-themed image */
+            background-size: cover; /* Ensures the background image covers the entire div */
+            background-position: center; /* Centers the background image */
+            background-repeat: no-repeat; /* Prevents the background image from repeating */
+        }
+
+        .center-heading-container h1 {
+            margin: 0;
+            font-size: 3rem; /* Adjust font size as needed */
+            background: linear-gradient(90deg, #4b90ff, #8a2be2); /* Blue to purple gradient */
+            background-clip: text; /* Standard property */
+            -webkit-background-clip: text;
+            color: transparent; /* Standard property */
+            -webkit-text-fill-color: transparent;
+        }
+
+        .center-heading-container p {
+            margin: 10px 0 0 0;
+            font-size: 18px;
+            color: #585858; /* Example color, adjust as needed */
+        }
+
+    </style>
+</head>
+<body>
+    <div class="center-heading-container">
+        <h1>Luminance (Sean's Chatbot)</h1>
+        <p>Scroll down to access Chatbot</p>
+    </div>
+    <div id="root">
+        <!-- Your other content goes here -->
+    </div>
+</body>
+
+<body>
+
+    <nav class="navbar">
+        <h3 class="navbar__logo">Luminance 2.0</h3>
+        <button class="navbar__button" id="themeToggler"><i class='bx bx-sun'></i></button>
+    </nav>
+
+    <header class="header">
+        <div class="header__title">
+            <h1>Hello, Traveler!</h1>
+            <h2>How can I help you today?</h2>
+        </div>
+        <div class="suggests">
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Suggest beautiful places to see in Teyvat in Genshin Impact
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-stopwatch'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Briefly summarize this concept: world exploration in Genshin Impact
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-edit-alt'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Brainstorm elemental reactions in Genshin Impact
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-compass'></i>
+                </div>
+            </div>
+            <div class="suggests__item">
+                <p class="suggests__item-text">
+                    Tell me about React js and React native
+                </p>
+                <div class="suggests__item-icon">
+                    <i class='bx bx-wrench'></i>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="chats"></section>
+
+    <section class="prompt">
+        <form action="#" class="prompt__form" novalidate>
+            <div class="prompt__input-wrapper">
+                <input type="text" placeholder="Enter a prompt here" class="prompt__form-input" required>
+                <button class="prompt__form-button" id="sendButton">
+                    <i class='bx bx-send'></i>
+                </button>
+                <button class="prompt__form-button" id="deleteButton">
+                    <i class='bx bx-trash'></i>
+                </button>
+            </div>
+        </form>
+        <p class="prompt__disclaim">
+            Luminance may display inaccurate info, including about people, so double-check its responses.
+        </p>
+    </section>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="script.js"></script>
+</body>
+
+</html>
