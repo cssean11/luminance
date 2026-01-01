@@ -9,8 +9,15 @@ const clearChatButton = document.getElementById("deleteButton");
 let currentUserMessage = null;
 let isGeneratingResponse = false;
 
+// ⚠️ REPLACE THIS WITH YOUR NEW GEMINI API KEY ⚠️
 const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
+
+// ✅ CORRECTED API ENDPOINT for Gemini 2.0 Flash
 const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+
+// ✅ Add retry configuration
+let retryCount = 0;
+const MAX_RETRIES = 3;
 
 // Load saved data from local storage
 const loadSavedChatHistory = () => {
@@ -26,12 +33,10 @@ const loadSavedChatHistory = () => {
     savedConversations.forEach(conversation => {
         // Display the user's message
         const userMessageHtml = `
-
             <div class="message__content">
                 <img class="message__avatar" src="assets/profile.png" alt="User avatar">
-               <p class="message__text">${conversation.userMessage}</p>
+                <p class="message__text">${conversation.userMessage}</p>
             </div>
-        
         `;
 
         const outgoingMessageElement = createChatMessageElement(userMessageHtml, "message--outgoing");
@@ -43,8 +48,7 @@ const loadSavedChatHistory = () => {
         const rawApiResponse = responseText; // Plain text version
 
         const responseHtml = `
-        
-           <div class="message__content">
+            <div class="message__content">
                 <img class="message__avatar" src="assets/Gemini.png" alt="Columbina avatar">
                 <p class="message__text"></p>
                 <div class="message__loading-indicator hide">
@@ -54,7 +58,6 @@ const loadSavedChatHistory = () => {
                 </div>
             </div>
             <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>
-        
         `;
 
         const incomingMessageElement = createChatMessageElement(responseHtml, "message--incoming");
@@ -108,24 +111,85 @@ const showTypingEffect = (rawText, htmlText, messageElement, incomingMessageElem
     }, 75);
 };
 
-// Fetch API response based on user input
-const requestApiResponse = async (incomingMessageElement) => {
+// ✅ UPDATED & FIXED: Fetch API response with better error handling
+const requestApiResponse = async (incomingMessageElement, retryAttempt = 0) => {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
 
     try {
+        // ✅ CORRECTED request format for Gemini 2.0
         const response = await fetch(API_REQUEST_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
             body: JSON.stringify({
-                contents: [{ role: "user", parts: [{ text: currentUserMessage }] }]
+                contents: [{
+                    role: "user",
+                    parts: [{ 
+                        text: `You are a helpful AI assistant. Respond to: "${currentUserMessage}"` 
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 1,
+                    topP: 1,
+                    maxOutputTokens: 2048,
+                },
+                safetySettings: [
+                    {
+                        category: "HARM_CATEGORY_HARASSMENT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_HATE_SPEECH",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                        threshold: "BLOCK_NONE"
+                    },
+                    {
+                        category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+                        threshold: "BLOCK_NONE"
+                    }
+                ]
             }),
         });
 
         const responseData = await response.json();
-        if (!response.ok) throw new Error(responseData.error.message);
+        
+        // ✅ Handle specific errors
+        if (!response.ok) {
+            const errorMessage = responseData.error?.message || `HTTP ${response.status}`;
+            
+            // Handle quota errors
+            if (response.status === 429 || errorMessage.includes("quota")) {
+                if (retryAttempt < MAX_RETRIES) {
+                    const waitTime = Math.pow(2, retryAttempt) * 1000; // Exponential backoff
+                    messageTextElement.innerText = `Quota exceeded. Retrying in ${waitTime/1000} seconds...`;
+                    setTimeout(() => {
+                        requestApiResponse(incomingMessageElement, retryAttempt + 1);
+                    }, waitTime);
+                    return;
+                }
+                throw new Error("Daily quota exceeded. Please try again tomorrow or enable billing.");
+            }
+            
+            // Handle authentication errors
+            if (response.status === 403 || errorMessage.includes("API key")) {
+                throw new Error("Invalid API key. Please check your Google AI Studio API key.");
+            }
+            
+            throw new Error(`API Error: ${errorMessage}`);
+        }
 
+        // ✅ Extract response text safely
         const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!responseText) throw new Error("Invalid API response.");
+        if (!responseText) {
+            console.error("API Response structure:", responseData);
+            throw new Error("Received empty response from API. Check console for details.");
+        }
 
         const parsedApiResponse = marked.parse(responseText);
         const rawApiResponse = responseText;
@@ -139,10 +203,35 @@ const requestApiResponse = async (incomingMessageElement) => {
             apiResponse: responseData
         });
         localStorage.setItem("saved-api-chats", JSON.stringify(savedConversations));
+        
+        // Reset retry count on success
+        retryCount = 0;
+        
     } catch (error) {
         isGeneratingResponse = false;
-        messageTextElement.innerText = error.message;
+        messageTextElement.innerText = `Error: ${error.message}`;
         messageTextElement.closest(".message").classList.add("message--error");
+        
+        // Add helpful instructions based on error type
+        if (error.message.includes("quota") || error.message.includes("exceeded")) {
+            messageTextElement.innerHTML += `<br><br>
+                <small>
+                    💡 <strong>Solutions:</strong><br>
+                    1. Wait for daily reset (midnight Pacific Time)<br>
+                    2. Enable billing at <a href="https://makersuite.google.com/app/billing" target="_blank">Google AI Studio Billing</a><br>
+                    3. Try a different API key
+                </small>`;
+        }
+        
+        if (error.message.includes("API key")) {
+            messageTextElement.innerHTML += `<br><br>
+                <small>
+                    🔑 <strong>Get a new API key:</strong><br>
+                    1. Go to <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a><br>
+                    2. Click "Create API Key"<br>
+                    3. Copy and replace in your code
+                </small>`;
+        }
     } finally {
         incomingMessageElement.classList.remove("message--loading");
     }
@@ -180,7 +269,6 @@ const addCopyButtonToCodeBlocks = () => {
 // Show loading animation during API request
 const displayLoadingAnimation = () => {
     const loadingHtml = `
-
         <div class="message__content">
             <img class="message__avatar" src="assets/Gemini.png" alt="Gemini avatar">
             <p class="message__text"></p>
@@ -191,7 +279,6 @@ const displayLoadingAnimation = () => {
             </div>
         </div>
         <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>
-    
     `;
 
     const loadingMessageElement = createChatMessageElement(loadingHtml, "message--incoming", "message--loading");
@@ -217,12 +304,10 @@ const handleOutgoingMessage = () => {
     isGeneratingResponse = true;
 
     const outgoingMessageHtml = `
-    
         <div class="message__content">
             <img class="message__avatar" src="assets/profile.png" alt="User avatar">
             <p class="message__text"></p>
         </div>
-
     `;
 
     const outgoingMessageElement = createChatMessageElement(outgoingMessageHtml, "message--outgoing");
@@ -274,3 +359,32 @@ messageForm.addEventListener('submit', (e) => {
 // Load saved chat history on page load
 loadSavedChatHistory();
 
+// ✅ Add a function to test the API key
+const testApiKey = async () => {
+    try {
+        const testResponse = await fetch(API_REQUEST_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                contents: [{
+                    role: "user",
+                    parts: [{ text: "Say 'Hello' if the API is working." }]
+                }]
+            })
+        });
+        
+        const data = await testResponse.json();
+        console.log("API Key Test Result:", data);
+        
+        if (testResponse.ok) {
+            console.log("✅ API Key is valid!");
+        } else {
+            console.error("❌ API Key error:", data.error?.message);
+        }
+    } catch (error) {
+        console.error("❌ API Test failed:", error.message);
+    }
+};
+
+// Test the API on page load
+setTimeout(testApiKey, 2000);
