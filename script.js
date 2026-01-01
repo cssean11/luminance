@@ -10,7 +10,7 @@ let currentUserMessage = null;
 let isGeneratingResponse = false;
 
 // ⚠️ REPLACE THIS WITH YOUR NEW GEMINI API KEY ⚠️
-const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
+const GOOGLE_API_KEY = "AIzaSyC92qyOMsjZZMj84CrkbfNqwx6XIWqc5Ao";
 
 // ✅ CORRECTED API ENDPOINT for Gemini 2.0 Flash
 const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
