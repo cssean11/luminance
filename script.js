@@ -1,252 +1,121 @@
-const messageForm = document.querySelector(".prompt__form");
-const chatHistoryContainer = document.querySelector(".chats");
-const suggestionItems = document.querySelectorAll(".suggests__item");
-const themeToggleButton = document.getElementById("themeToggler");
-const clearChatButton = document.getElementById("deleteButton");
+// OpenRouter Configuration
+const OPENROUTER_API_KEY = "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";
+const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// State
-const state = {
-    currentUserMessage: null,
-    isGeneratingResponse: false,
-    abortController: null
-};
+// DOM Elements
+const chatContainer = document.getElementById('chatContainer');
+const userInput = document.getElementById('userInput');
+const sendButton = document.getElementById('sendButton');
 
-// Load saved chat
-const loadSavedChatHistory = () => {
-    const saved = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
-    const isLight = localStorage.getItem("themeColor") === "light_mode";
+let isGenerating = false;
 
-    document.body.classList.toggle("light_mode", isLight);
-    themeToggleButton.innerHTML = isLight ? '<i class="bx bx-moon"></i>' : '<i class="bx bx-sun"></i>';
-    chatHistoryContainer.innerHTML = '';
+function addMessage(text, isUser = false) {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+    
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'avatar';
+    avatarDiv.textContent = isUser ? 'You' : 'AI';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content';
+    // Use line breaks for readability
+    contentDiv.innerText = text; 
+    
+    messageDiv.appendChild(avatarDiv);
+    messageDiv.appendChild(contentDiv);
+    chatContainer.appendChild(messageDiv);
+    
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    return contentDiv;
+}
 
-    saved.forEach(conv => {
-        const userHtml = `
-            <div class="message__content">
-                <img class="message__avatar" src="assets/profile.png" alt="User avatar">
-                <p class="message__text">${conv.userMessage}</p>
-            </div>`;
-        chatHistoryContainer.appendChild(createChatMessageElement(userHtml, "message--outgoing"));
+function showLoading() {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message ai';
+    const avatarDiv = document.createElement('div');
+    avatarDiv.className = 'avatar';
+    avatarDiv.textContent = 'AI';
+    
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message-content loading';
+    contentDiv.innerHTML = `<div class="loading-dots"><div></div><div></div><div></div></div>`;
+    
+    messageDiv.appendChild(avatarDiv);
+    messageDiv.appendChild(contentDiv);
+    chatContainer.appendChild(messageDiv);
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+    return contentDiv;
+}
 
-        const responseHtml = `
-            <div class="message__content">
-                <img class="message__avatar" src="assets/claude.png" alt="AI avatar">
-                <p class="message__text"></p>
-                <div class="message__loading-indicator hide">
-                    <div class="message__loading-bar"></div>
-                    <div class="message__loading-bar"></div>
-                    <div class="message__loading-bar"></div>
-                </div>
-            </div>
-            <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>`;
-
-        const incoming = createChatMessageElement(responseHtml, "message--incoming");
-        chatHistoryContainer.appendChild(incoming);
-
-        const textEl = incoming.querySelector(".message__text");
-        const rawText = conv.responseText || "No response";
-        const htmlText = window.marked ? marked.parse(rawText) : rawText;
-        showTypingEffect(rawText, htmlText, textEl, incoming, true);
-    });
-
-    document.body.classList.toggle("hide-header", saved.length > 0);
-};
-
-// Create message element
-const createChatMessageElement = (html, ...classes) => {
-    const el = document.createElement("div");
-    el.classList.add("message", ...classes);
-    el.innerHTML = html;
-    return el;
-};
-
-// Typing effect
-const showTypingEffect = (rawText, htmlText, msgEl, incomingEl, skip=false) => {
-    const copyIcon = incomingEl.querySelector(".message__icon");
-    copyIcon.classList.add("hide");
-
-    if(skip){
-        msgEl.innerHTML = htmlText;
-        if(window.hljs) hljs.highlightAll();
-        addCopyButtonToCodeBlocks();
-        copyIcon.classList.remove("hide");
-        state.isGeneratingResponse = false;
-        return;
-    }
-
-    const words = rawText.split(' ');
-    let i = 0;
-    const interval = setInterval(()=>{
-        msgEl.innerText += (i===0?'':' ')+words[i++];
-        if(i===words.length){
-            clearInterval(interval);
-            msgEl.innerHTML = htmlText;
-            if(window.hljs) hljs.highlightAll();
-            addCopyButtonToCodeBlocks();
-            copyIcon.classList.remove("hide");
-            state.isGeneratingResponse = false;
-        }
-    }, 75);
-};
-
-// Request API (calls backend proxy)
-const requestApiResponse = async (incomingEl) => {
-    const msgEl = incomingEl.querySelector(".message__text");
+async function generateAIResponse(userMessage) {
     try {
-        state.abortController = new AbortController();
-
-        const resp = await fetch("/api/chat", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: state.currentUserMessage }),
-            signal: state.abortController.signal
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+                'Content-Type': 'application/json',
+                'HTTP-Referer': window.location.href, // Required by OpenRouter
+                'X-Title': 'AI Chat Assistant'        // Optional for OpenRouter
+            },
+            body: JSON.stringify({
+                "model": "google/gemini-2.0-flash-001", // Or "openai/gpt-3.5-turbo"
+                "messages": [
+                    {"role": "user", "content": userMessage}
+                ]
+            })
         });
 
-        if(!resp.ok){
-            const err = await resp.json().catch(()=>({}));
-            throw new Error(err.error || `HTTP ${resp.status}`);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
         }
 
-        const data = await resp.json();
-        const rawText = data.text || "No response";
-        const htmlText = window.marked ? marked.parse(rawText) : rawText;
+        const data = await response.json();
+        return data.choices[0].message.content;
+    } catch (error) {
+        console.error('Error:', error);
+        return `Error: ${error.message}`;
+    }
+}
 
-        showTypingEffect(rawText, htmlText, msgEl, incomingEl);
-
-        let saved = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
-        saved.push({ userMessage: state.currentUserMessage, responseText: rawText, timestamp: new Date().toISOString() });
-        localStorage.setItem("saved-api-chats", JSON.stringify(saved));
-
-    } catch(err){
-        if(err.name==='AbortError'){
-            msgEl.innerText="⏹️ Request cancelled";
-        } else {
-            msgEl.innerText=`❌ ${err.message}`;
-        }
-        msgEl.closest(".message").classList.add("message--error");
+async function sendMessage() {
+    if (isGenerating) return;
+    
+    const message = userInput.value.trim();
+    if (!message) return;
+    
+    addMessage(message, true);
+    userInput.value = '';
+    
+    const loadingElement = showLoading();
+    isGenerating = true;
+    sendButton.disabled = true;
+    
+    try {
+        const aiResponse = await generateAIResponse(message);
+        loadingElement.parentElement.remove();
+        addMessage(aiResponse, false);
+    } catch (error) {
+        loadingElement.parentElement.remove();
+        addMessage(`System Error: ${error.message}`, false);
     } finally {
-        incomingEl.classList.remove("message--loading");
-        state.isGeneratingResponse=false;
-        state.abortController=null;
+        isGenerating = false;
+        sendButton.disabled = false;
+        userInput.focus();
     }
-};
+}
 
-// Abort request
-const abortCurrentRequest = ()=> {
-    if(state.abortController){
-        state.abortController.abort();
-        state.isGeneratingResponse=false;
+function useSuggestion(button) {
+    userInput.value = button.textContent;
+    userInput.focus();
+}
+
+function handleKeyPress(event) {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
     }
-};
+}
 
-// Copy code blocks
-const addCopyButtonToCodeBlocks = ()=>{
-    document.querySelectorAll('pre').forEach(block=>{
-        if(block.querySelector('.code__copy-btn')) return;
-        const code = block.querySelector('code');
-        let lang = [...code.classList].find(c=>c.startsWith('language-'))?.replace('language-','')||'Text';
-
-        const label = document.createElement('div');
-        label.innerText = lang.charAt(0).toUpperCase()+lang.slice(1);
-        label.classList.add('code__language-label');
-        block.appendChild(label);
-
-        const btn = document.createElement('button');
-        btn.innerHTML=`<i class='bx bx-copy'></i>`;
-        btn.classList.add('code__copy-btn');
-        block.appendChild(btn);
-
-        btn.addEventListener('click',()=>{
-            navigator.clipboard.writeText(code.innerText).then(()=>{
-                btn.innerHTML=`<i class='bx bx-check'></i>`;
-                setTimeout(()=>btn.innerHTML=`<i class='bx bx-copy'></i>`,2000);
-            }).catch(()=>alert("Unable to copy text!"));
-        });
-    });
-};
-
-// Loading animation
-const displayLoadingAnimation = () => {
-    const html = `
-        <div class="message__content">
-            <img class="message__avatar" src="assets/claude.png" alt="AI avatar">
-            <p class="message__text"></p>
-            <div class="message__loading-indicator">
-                <div class="message__loading-bar"></div>
-                <div class="message__loading-bar"></div>
-                <div class="message__loading-bar"></div>
-            </div>
-        </div>
-        <span onClick="copyMessageToClipboard(this)" class="message__icon hide"><i class='bx bx-copy-alt'></i></span>
-    `;
-    const el = createChatMessageElement(html,"message--incoming","message--loading");
-    chatHistoryContainer.appendChild(el);
-    requestApiResponse(el);
-};
-
-// Copy message
-const copyMessageToClipboard=(btn)=>{
-    const text = btn.parentElement.querySelector(".message__text").innerText;
-    navigator.clipboard.writeText(text);
-    btn.innerHTML=`<i class='bx bx-check'></i>`;
-    setTimeout(()=>btn.innerHTML=`<i class='bx bx-copy-alt'></i>`,1000);
-};
-
-// Handle outgoing message
-const handleOutgoingMessage = ()=>{
-    state.currentUserMessage = messageForm.querySelector(".prompt__form-input").value.trim() || state.currentUserMessage;
-    if(!state.currentUserMessage||state.isGeneratingResponse) return;
-    state.isGeneratingResponse=true;
-
-    const html = `
-        <div class="message__content">
-            <img class="message__avatar" src="assets/profile.png" alt="User avatar">
-            <p class="message__text"></p>
-        </div>`;
-    const el = createChatMessageElement(html,"message--outgoing");
-    el.querySelector(".message__text").innerText=state.currentUserMessage;
-    chatHistoryContainer.appendChild(el);
-
-    messageForm.reset();
-    document.body.classList.add("hide-header");
-    setTimeout(displayLoadingAnimation,500);
-};
-
-// Theme toggle
-themeToggleButton.addEventListener('click',()=>{
-    const light = document.body.classList.toggle("light_mode");
-    localStorage.setItem("themeColor",light?"light_mode":"dark_mode");
-    themeToggleButton.querySelector("i").className = light?"bx bx-moon":"bx bx-sun";
-});
-
-// Clear chat
-clearChatButton.addEventListener('click',()=>{
-    if(confirm("Are you sure you want to delete all chat history?")){
-        localStorage.removeItem("saved-api-chats");
-        loadSavedChatHistory();
-        state.currentUserMessage=null;
-        state.isGeneratingResponse=false;
-    }
-});
-
-// Suggestions
-suggestionItems.forEach(s=>{
-    s.addEventListener('click',()=>{
-        state.currentUserMessage=s.querySelector(".suggests__item-text").innerText;
-        handleOutgoingMessage();
-    });
-});
-
-// Form submit
-messageForm.addEventListener('submit',e=>{
-    e.preventDefault();
-    handleOutgoingMessage();
-});
-
-// Abort Escape key
-document.addEventListener('keydown',e=>{
-    if(e.key==='Escape' && state.isGeneratingResponse) abortCurrentRequest();
-});
-
-// Load history
-loadSavedChatHistory();
+userInput.focus();
