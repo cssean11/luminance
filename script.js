@@ -11,16 +11,6 @@ const state = {
     abortController: null
 };
 
-// Claude API config (hardcoded key)
-const CLAUDE_CONFIG = {
-    API_KEY: "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",
-    API_URL: "https://api.anthropic.com/v1/messages",
-    MODEL: "claude-3-5-sonnet-20241022",
-    MAX_TOKENS: 4096,
-    TEMPERATURE: 0.7,
-    VERSION: "2023-06-01"
-};
-
 // Load saved chat
 const loadSavedChatHistory = () => {
     const saved = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
@@ -99,38 +89,26 @@ const showTypingEffect = (rawText, htmlText, msgEl, incomingEl, skip=false) => {
     }, 75);
 };
 
-// Request Claude directly
+// Request API (calls backend proxy)
 const requestApiResponse = async (incomingEl) => {
     const msgEl = incomingEl.querySelector(".message__text");
     try {
         state.abortController = new AbortController();
 
-        const resp = await fetch(CLAUDE_CONFIG.API_URL, {
+        const resp = await fetch("/api/chat", {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-api-key": CLAUDE_CONFIG.API_KEY,
-                "anthropic-version": CLAUDE_CONFIG.VERSION
-            },
-            body: JSON.stringify({
-                model: CLAUDE_CONFIG.MODEL,
-                max_tokens: CLAUDE_CONFIG.MAX_TOKENS,
-                temperature: CLAUDE_CONFIG.TEMPERATURE,
-                messages: [{
-                    role: "user",
-                    content: [{ type:"text", text: state.currentUserMessage }]
-                }]
-            }),
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ message: state.currentUserMessage }),
             signal: state.abortController.signal
         });
 
         if(!resp.ok){
             const err = await resp.json().catch(()=>({}));
-            throw new Error(err.error?.message || `HTTP ${resp.status}`);
+            throw new Error(err.error || `HTTP ${resp.status}`);
         }
 
         const data = await resp.json();
-        const rawText = data?.content?.[0]?.text || "No response";
+        const rawText = data.text || "No response";
         const htmlText = window.marked ? marked.parse(rawText) : rawText;
 
         showTypingEffect(rawText, htmlText, msgEl, incomingEl);
