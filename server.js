@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 // ⚠️ HARD-CODED KEY (unsafe, but exactly what you asked for)
-const CLAUDE_API_KEY = "sk-ant-api03-REPLACE-WITH-YOURS";
+const CLAUDE_API_KEY = "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";
 
 app.post("/api/chat", async (req, res) => {
     try {
