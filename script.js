@@ -10,7 +10,7 @@ let currentUserMessage = null;
 let isGeneratingResponse = false;
 
 // Replace with YOUR Google API key
-const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
+const GOOGLE_API_KEY = "AIzaSyBcvhawhE6kwSeikWy2E_gR8XSaphy9aGQ";
 
 // ✅ CORRECT MODEL: Using gemini-2.5-flash (fastest and newest available)
 const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
