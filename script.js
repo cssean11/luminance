@@ -1,121 +1,101 @@
-// OpenRouter Configuration
 const OPENROUTER_API_KEY = "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";
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
-// DOM Elements
-const chatContainer = document.getElementById('chatContainer');
-const userInput = document.getElementById('userInput');
-const sendButton = document.getElementById('sendButton');
+const promptForm = document.querySelector('.prompt__form');
+const promptInput = document.querySelector('.prompt__form-input');
+const chatContainer = document.querySelector('.chats');
+const themeToggler = document.getElementById('themeToggler');
+const deleteButton = document.getElementById('deleteButton');
 
-let isGenerating = false;
+// 1. Handle Theme Toggling
+themeToggler.addEventListener('click', () => {
+    document.body.classList.toggle('dark-theme');
+    const icon = themeToggler.querySelector('i');
+    icon.classList.toggle('bx-sun');
+    icon.classList.toggle('bx-moon');
+});
 
-function addMessage(text, isUser = false) {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
-    
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'avatar';
-    avatarDiv.textContent = isUser ? 'You' : 'AI';
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content';
-    // Use line breaks for readability
-    contentDiv.innerText = text; 
-    
-    messageDiv.appendChild(avatarDiv);
-    messageDiv.appendChild(contentDiv);
-    chatContainer.appendChild(messageDiv);
-    
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-    return contentDiv;
-}
+// 2. Handle Deleting Chats
+deleteButton.addEventListener('click', () => {
+    if (confirm("Clear all messages?")) {
+        chatContainer.innerHTML = '';
+    }
+});
 
-function showLoading() {
-    const messageDiv = document.createElement('div');
-    messageDiv.className = 'message ai';
-    const avatarDiv = document.createElement('div');
-    avatarDiv.className = 'avatar';
-    avatarDiv.textContent = 'AI';
-    
-    const contentDiv = document.createElement('div');
-    contentDiv.className = 'message-content loading';
-    contentDiv.innerHTML = `<div class="loading-dots"><div></div><div></div><div></div></div>`;
-    
-    messageDiv.appendChild(avatarDiv);
-    messageDiv.appendChild(contentDiv);
-    chatContainer.appendChild(messageDiv);
-    chatContainer.scrollTop = chatContainer.scrollHeight;
-    return contentDiv;
-}
+// 3. Create Chat Bubble
+const createChatBubble = (content, className) => {
+    const div = document.createElement('div');
+    div.classList.add('chat', className);
+    // Using marked.parse to render Markdown (like bold text or code)
+    div.innerHTML = `
+        <div class="chat__content">
+            ${className === 'chat--incoming' ? '<b>AI:</b> ' : '<b>You:</b> '}
+            <div class="message-text">${marked.parse(content)}</div>
+        </div>
+    `;
+    chatContainer.appendChild(div);
+    chatContainer.scrollTo(0, chatContainer.scrollHeight);
+    return div;
+};
 
-async function generateAIResponse(userMessage) {
+// 4. Call OpenRouter API
+async function getResponse(userPrompt) {
     try {
         const response = await fetch(API_URL, {
-            method: 'POST',
+            method: "POST",
             headers: {
-                'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-                'Content-Type': 'application/json',
-                'HTTP-Referer': window.location.href, // Required by OpenRouter
-                'X-Title': 'AI Chat Assistant'        // Optional for OpenRouter
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+                "HTTP-Referer": window.location.origin, 
+                "X-Title": "Luminance 2.0"
             },
             body: JSON.stringify({
-                "model": "google/gemini-2.0-flash-001", // Or "openai/gpt-3.5-turbo"
-                "messages": [
-                    {"role": "user", "content": userMessage}
-                ]
+                "model": "google/gemini-2.0-flash-001",
+                "messages": [{ "role": "user", "content": userPrompt }]
             })
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.error?.message || `API Error: ${response.status}`);
-        }
-
         const data = await response.json();
+        if (!response.ok) throw new Error(data.error?.message || "API Error");
+
         return data.choices[0].message.content;
     } catch (error) {
-        console.error('Error:', error);
-        return `Error: ${error.message}`;
+        console.error(error);
+        return "Sorry, I couldn't connect to Teyvat. Error: " + error.message;
     }
 }
 
-async function sendMessage() {
-    if (isGenerating) return;
-    
-    const message = userInput.value.trim();
-    if (!message) return;
-    
-    addMessage(message, true);
-    userInput.value = '';
-    
-    const loadingElement = showLoading();
-    isGenerating = true;
-    sendButton.disabled = true;
-    
-    try {
-        const aiResponse = await generateAIResponse(message);
-        loadingElement.parentElement.remove();
-        addMessage(aiResponse, false);
-    } catch (error) {
-        loadingElement.parentElement.remove();
-        addMessage(`System Error: ${error.message}`, false);
-    } finally {
-        isGenerating = false;
-        sendButton.disabled = false;
-        userInput.focus();
-    }
-}
+// 5. Handle Form Submission
+promptForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const prompt = promptInput.value.trim();
+    if (!prompt) return;
 
-function useSuggestion(button) {
-    userInput.value = button.textContent;
-    userInput.focus();
-}
+    // Add User Message
+    createChatBubble(prompt, 'chat--outgoing');
+    promptInput.value = '';
 
-function handleKeyPress(event) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendMessage();
-    }
-}
+    // Add Loading State
+    const loadingBubble = createChatBubble("Thinking...", 'chat--incoming');
 
-userInput.focus();
+    // Get AI response
+    const aiResponse = await getResponse(prompt);
+    
+    // Replace loading text with actual response
+    loadingBubble.querySelector('.message-text').innerHTML = marked.parse(aiResponse);
+    
+    // Highlight any code blocks in the response
+    loadingBubble.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+    });
+    
+    chatContainer.scrollTo(0, chatContainer.scrollHeight);
+});
+
+// 6. Suggestion Chips logic
+document.querySelectorAll('.suggests__item').forEach(item => {
+    item.addEventListener('click', () => {
+        promptInput.value = item.querySelector('.suggests__item-text').innerText.trim();
+        promptInput.focus();
+    });
+});
