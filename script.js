@@ -11,11 +11,11 @@ const state = {
     abortController: null
 };
 
-// OpenRouter Configuration
-const OPENROUTER_CONFIG = {
-    API_KEY: "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",
-    API_URL: "https://openrouter.ai/api/v1/chat/completions",
-    MODEL: "google/gemini-2.0-flash-exp:free", // Free model
+// DeepSeek API Configuration
+const DEEPSEEK_CONFIG = {
+    API_KEY: "sk-a22270c199d34c8b969a2081607a8c37",
+    API_URL: "https://api.deepseek.com/v1/chat/completions",
+    MODEL: "deepseek-chat", // or "deepseek-coder" for coding tasks
     MAX_TOKENS: 4096,
     TEMPERATURE: 0.7
 };
@@ -41,7 +41,7 @@ const loadSavedChatHistory = () => {
         const outgoingMessageElement = createChatMessageElement(userMessageHtml, "message--outgoing");
         chatHistoryContainer.appendChild(outgoingMessageElement);
 
-        // OpenRouter response format is different from Google's
+        // DeepSeek response format
         const responseText = conversation.apiResponse?.choices?.[0]?.message?.content || 
                              conversation.apiResponse?.text || 
                              "No response available";
@@ -50,7 +50,7 @@ const loadSavedChatHistory = () => {
 
         const responseHtml = `
            <div class="message__content">
-                <img class="message__avatar" src="assets/Gemini.png" alt="Columbina avatar">
+                <img class="message__avatar" src="assets/Gemini.png" alt="AI avatar">
                 <p class="message__text"></p>
                 <div class="message__loading-indicator hide">
                     <div class="message__loading-bar"></div>
@@ -107,66 +107,67 @@ const showTypingEffect = (rawText, htmlText, messageElement, incomingMessageElem
     }, 75);
 };
 
-// UPDATED: OpenRouter API request function
+// DeepSeek API request function
 const requestApiResponse = async (incomingMessageElement) => {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
 
     try {
-        console.log("🚀 Sending request to OpenRouter...");
+        console.log("🚀 Sending request to DeepSeek API...");
         console.log("📝 User message:", state.currentUserMessage);
         
         // Create AbortController for request cancellation
         state.abortController = new AbortController();
 
-        const response = await fetch(OPENROUTER_CONFIG.API_URL, {
+        const response = await fetch(DEEPSEEK_CONFIG.API_URL, {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${OPENROUTER_CONFIG.API_KEY}`,
-                "HTTP-Referer": window.location.origin || "http://localhost",
-                "X-Title": "AI Chat Assistant"
+                "Authorization": `Bearer ${DEEPSEEK_CONFIG.API_KEY}`
             },
             body: JSON.stringify({
-                model: OPENROUTER_CONFIG.MODEL,
+                model: DEEPSEEK_CONFIG.MODEL,
                 messages: [
                     {
                         role: "system",
-                        content: "You are a helpful AI assistant. Provide clear, concise, and accurate responses."
+                        content: "You are a helpful AI assistant. Provide clear, concise, and accurate responses. Format code snippets properly."
                     },
                     {
                         role: "user",
                         content: state.currentUserMessage
                     }
                 ],
-                max_tokens: OPENROUTER_CONFIG.MAX_TOKENS,
-                temperature: OPENROUTER_CONFIG.TEMPERATURE
+                max_tokens: DEEPSEEK_CONFIG.MAX_TOKENS,
+                temperature: DEEPSEEK_CONFIG.TEMPERATURE,
+                stream: false
             }),
             signal: state.abortController.signal
         });
 
         console.log("📡 Response status:", response.status);
 
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+            
+            if (response.status === 401) {
+                throw new Error("DeepSeek API key is invalid. Please check your key at https://platform.deepseek.com/api_keys");
+            } else if (response.status === 429) {
+                throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+            } else if (response.status === 402) {
+                throw new Error("Insufficient credits. Check your DeepSeek account balance.");
+            }
+            throw new Error(`DeepSeek API Error: ${errorMessage}`);
+        }
+
         const responseData = await response.json();
         console.log("📦 Response data:", responseData);
 
-        if (!response.ok) {
-            // Handle OpenRouter specific errors
-            if (response.status === 401) {
-                throw new Error("OpenRouter API key is invalid. Please check your key at https://openrouter.ai/keys");
-            } else if (response.status === 402) {
-                throw new Error("Insufficient credits on OpenRouter. Add funds to your account.");
-            } else if (response.status === 429) {
-                throw new Error("Rate limit exceeded. Please wait a moment and try again.");
-            }
-            throw new Error(responseData.error?.message || `OpenRouter API Error: ${response.status}`);
-        }
-
-        // OpenRouter response format
+        // DeepSeek response format
         const responseText = responseData?.choices?.[0]?.message?.content;
         
         if (!responseText) {
             console.error("Invalid response structure:", responseData);
-            throw new Error("No response text received from OpenRouter API");
+            throw new Error("No response text received from DeepSeek API");
         }
 
         const parsedApiResponse = marked.parse(responseText);
@@ -178,14 +179,15 @@ const requestApiResponse = async (incomingMessageElement) => {
         let savedConversations = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
         savedConversations.push({
             userMessage: state.currentUserMessage,
-            apiResponse: responseData
+            apiResponse: responseData,
+            timestamp: new Date().toISOString()
         });
         localStorage.setItem("saved-api-chats", JSON.stringify(savedConversations));
 
-        console.log("✅ OpenRouter response received successfully!");
+        console.log("✅ DeepSeek response received successfully!");
 
     } catch (error) {
-        console.error("❌ OpenRouter API Error:", error);
+        console.error("❌ DeepSeek API Error:", error);
         state.isGeneratingResponse = false;
         
         if (error.name === 'AbortError') {
@@ -244,7 +246,7 @@ const addCopyButtonToCodeBlocks = () => {
 const displayLoadingAnimation = () => {
     const loadingHtml = `
         <div class="message__content">
-            <img class="message__avatar" src="assets/Gemini.png" alt="Gemini avatar">
+            <img class="message__avatar" src="assets/Gemini.png" alt="AI avatar">
             <p class="message__text"></p>
             <div class="message__loading-indicator">
                 <div class="message__loading-bar"></div>
@@ -334,8 +336,33 @@ document.addEventListener('keydown', (e) => {
 // Load chat history on page load
 loadSavedChatHistory();
 
-// Quick test to verify OpenRouter API key is working
+// Test the DeepSeek API key on page load
 window.addEventListener('load', () => {
-    console.log("🔑 Using OpenRouter API Key:", OPENROUTER_CONFIG.API_KEY.substring(0, 10) + "...");
-    console.log("🤖 Selected model:", OPENROUTER_CONFIG.MODEL);
+    console.log("🔑 Using DeepSeek API Key:", DEEPSEEK_CONFIG.API_KEY.substring(0, 10) + "...");
+    console.log("🤖 Selected model:", DEEPSEEK_CONFIG.MODEL);
+    console.log("🌐 API URL:", DEEPSEEK_CONFIG.API_URL);
+    
+    // Quick test of the API key
+    testDeepSeekAPIKey();
 });
+
+// Test function for DeepSeek API key
+async function testDeepSeekAPIKey() {
+    try {
+        console.log("🧪 Testing DeepSeek API key...");
+        const response = await fetch('https://api.deepseek.com/v1/models', {
+            headers: {
+                'Authorization': `Bearer ${DEEPSEEK_CONFIG.API_KEY}`
+            }
+        });
+        
+        if (response.ok) {
+            console.log("✅ DeepSeek API key is VALID!");
+        } else {
+            const error = await response.json();
+            console.error("❌ DeepSeek API key is INVALID:", error.error?.message);
+        }
+    } catch (error) {
+        console.error("❌ Test failed:", error.message);
+    }
+}
