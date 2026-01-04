@@ -81,3 +81,4 @@ select { width: 100%; padding: 10px; background: var(--bg-dark); color: var(--te
 .close-modal-btn { background: var(--primary); color: white; border: none; margin-top: 15px; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
+
