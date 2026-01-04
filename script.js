@@ -9,9 +9,9 @@ const clearChatButton = document.getElementById("deleteButton");
 let currentUserMessage = null;
 let isGeneratingResponse = false;
 
-// ⚠️ WARNING: Get a new API key and use environment variables in production!
-const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs"; // Replace with new key
-const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`;
+// Replace with your actual Google API key
+const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
+const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_API_KEY}`;
 
 // Load saved data from local storage
 const loadSavedChatHistory = () => {
@@ -97,22 +97,15 @@ const showTypingEffect = (rawText, htmlText, messageElement, incomingMessageElem
     }, 75);
 };
 
-// ✅ IMPROVED: Better error handling and logging
+// Main API request function
 const requestApiResponse = async (incomingMessageElement) => {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
-
-    // Check if API key is set
-    if (!GOOGLE_API_KEY || GOOGLE_API_KEY === "YOUR_NEW_API_KEY_HERE") {
-        messageTextElement.innerText = "❌ Error: Please add your Google API key in the script.js file.";
-        messageTextElement.closest(".message").classList.add("message--error");
-        incomingMessageElement.classList.remove("message--loading");
-        isGeneratingResponse = false;
-        return;
-    }
 
     try {
         console.log("🚀 Sending request to API...");
         console.log("📝 User message:", currentUserMessage);
+        console.log("🔑 API Key exists:", !!GOOGLE_API_KEY);
+        console.log("🌐 API URL:", API_REQUEST_URL);
 
         const response = await fetch(API_REQUEST_URL, {
             method: "POST",
@@ -131,11 +124,12 @@ const requestApiResponse = async (incomingMessageElement) => {
         console.log("📦 Response data:", responseData);
 
         if (!response.ok) {
-            // Better error messages
             if (response.status === 403) {
                 throw new Error("API Key invalid or quota exceeded. Please check your Google Cloud Console.");
             } else if (response.status === 400) {
                 throw new Error("Bad request. Check your API endpoint and request format.");
+            } else if (response.status === 404) {
+                throw new Error("Model not found. The API endpoint may have changed.");
             }
             throw new Error(responseData.error?.message || `API Error: ${response.status}`);
         }
@@ -150,7 +144,6 @@ const requestApiResponse = async (incomingMessageElement) => {
 
         showTypingEffect(rawApiResponse, parsedApiResponse, messageTextElement, incomingMessageElement);
 
-        // Save conversation
         let savedConversations = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
         savedConversations.push({
             userMessage: currentUserMessage,
@@ -164,7 +157,6 @@ const requestApiResponse = async (incomingMessageElement) => {
         console.error("❌ API Error:", error);
         isGeneratingResponse = false;
         
-        // User-friendly error messages
         if (error.message.includes("Failed to fetch")) {
             messageTextElement.innerText = "❌ Network error. Please check your internet connection and try again.";
         } else {
@@ -285,4 +277,3 @@ messageForm.addEventListener('submit', (e) => {
 });
 
 loadSavedChatHistory();
-
