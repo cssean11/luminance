@@ -12,8 +12,12 @@ let isGeneratingResponse = false;
 // Replace with YOUR Google API key
 const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
 
-// ✅ FIXED: Updated to correct Gemini 1.5 Flash model
-const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+// ✅ CORRECT MODEL: Using gemini-2.5-flash (fastest and newest available)
+const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
+
+// Other available models you can try:
+// Fast: gemini-2.0-flash, gemini-flash-latest
+// Pro: gemini-2.5-pro, gemini-pro-latest
 
 // Load saved data from local storage
 const loadSavedChatHistory = () => {
