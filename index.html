@@ -1,134 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="icon" type="image/png" href="Logo.png">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <title>Luminance 3.4 | Vision AI</title>
+    
+    <link rel="icon" type="image/png" sizes="32x32" href="Logo.png?v=1">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
     <link rel="stylesheet" href="style.css">
-    <title>Luminance 2.0</title>
-</head>
-
-<title>Luminance</title>
-    <script type="module" crossorigin="" src="js/index-CReThPys.js"></script>
-    <link rel="stylesheet" crossorigin="" href="css/index-T0--RNUp.css">
-    <style>
-        /* Inline CSS for centering the content and adding a background image */
-        .center-heading-container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            text-align: center;
-            background-image: url('https://wallpapers.com/images/hd/genshin-impact-lumine-playing-piano-7mvmj6fuibi6aqp3.jpg'); /* Update this with the path to your Genshin Impact-themed image */
-            background-size: cover; /* Ensures the background image covers the entire div */
-            background-position: center; /* Centers the background image */
-            background-repeat: no-repeat; /* Prevents the background image from repeating */
-        }
-
-        .center-heading-container h1 {
-            margin: 0;
-            font-size: 3rem; /* Adjust font size as needed */
-            background: linear-gradient(90deg, #4b90ff, #8a2be2); /* Blue to purple gradient */
-            background-clip: text; /* Standard property */
-            -webkit-background-clip: text;
-            color: transparent; /* Standard property */
-            -webkit-text-fill-color: transparent;
-        }
-
-        .center-heading-container p {
-            margin: 10px 0 0 0;
-            font-size: 18px;
-            color: #585858; /* Example color, adjust as needed */
-        }
-
-    </style>
-</head>
-<body>
-    <div class="center-heading-container">
-        <h1>Luminance (Sean's Chatbot)</h1>
-        <p>Scroll down to access Chatbot</p>
-    </div>
-    <div id="root">
-        <!-- Your other content goes here -->
-    </div>
-</body>
-
-<body>
-
-    <nav class="navbar">
-        <h3 class="navbar__logo">Luminance 2.0</h3>
-        <button class="navbar__button" id="themeToggler"><i class='bx bx-sun'></i></button>
-    </nav>
-
-    <header class="header">
-        <div class="header__title">
-            <h1>Hello, Traveler!</h1>
-            <h2>How can I help you today?</h2>
-        </div>
-        <div class="suggests">
-            <div class="suggests__item">
-                <p class="suggests__item-text">
-                    Suggest beautiful places to see in Teyvat in Genshin Impact
-                </p>
-                <div class="suggests__item-icon">
-                    <i class='bx bx-stopwatch'></i>
-                </div>
-            </div>
-            <div class="suggests__item">
-                <p class="suggests__item-text">
-                    Briefly summarize this concept: world exploration in Genshin Impact
-                </p>
-                <div class="suggests__item-icon">
-                    <i class='bx bx-edit-alt'></i>
-                </div>
-            </div>
-            <div class="suggests__item">
-                <p class="suggests__item-text">
-                    Brainstorm elemental reactions in Genshin Impact
-                </p>
-                <div class="suggests__item-icon">
-                    <i class='bx bx-compass'></i>
-                </div>
-            </div>
-            <div class="suggests__item">
-                <p class="suggests__item-text">
-                    Tell me about Columbina in Genshin Impact
-                </p>
-                <div class="suggests__item-icon">
-                    <i class='bx bx-wrench'></i>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <section class="chats"></section>
-
-    <section class="prompt">
-        <form action="#" class="prompt__form" novalidate>
-            <div class="prompt__input-wrapper">
-                <input type="text" placeholder="Enter a prompt here" class="prompt__form-input" required>
-                <button class="prompt__form-button" id="sendButton">
-                    <i class='bx bx-send'></i>
-                </button>
-                <button class="prompt__form-button" id="deleteButton">
-                    <i class='bx bx-trash'></i>
-                </button>
-            </div>
-        </form>
-        <p class="prompt__disclaim">
-            Luminance may display inaccurate info, including about people, so double-check its responses.
-        </p>
-    </section>
-
-
-
+    
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body data-theme="dark">
+
+    <aside id="sidebar">
+        <div class="sidebar-header">
+            <button class="nav-btn" onclick="newChat()"><i class='bx bx-plus'></i> New Journey</button>
+        </div>
+        <ul id="history-list"></ul>
+        <div class="sidebar-footer">
+            <button class="nav-btn" onclick="openSettings()"><i class='bx bx-cog'></i> Settings</button>
+        </div>
+    </aside>
+
+    <main id="main-wrapper">
+        <section class="hero-banner">
+            <h1>LUMINANCE</h1>
+            <p>VISION AI ASSISTANT</p>
+        </section>
+
+        <div id="chat-window"></div>
+
+        <div class="input-area">
+            <div class="input-container">
+                <div id="preview-bar" class="preview-bar">
+                    <img id="img-preview" class="preview-img">
+                    <span id="preview-text">Ready to analyze...</span>
+                    <button onclick="clearImage()" class="icon-btn" style="padding: 2px;"><i class='bx bx-x-circle' style="color:#ef4444"></i></button>
+                </div>
+                <form id="chat-form" class="form-box full-round">
+                    <input type="file" id="file-input" hidden accept="image/*">
+                    <button type="button" class="icon-btn" onclick="document.getElementById('file-input').click()">
+                        <i class='bx bx-image-add'></i>
+                    </button>
+                    <input type="text" id="user-input" placeholder="Consult the Ley Lines..." autocomplete="off">
+                    <button type="submit" class="send-btn"><i class='bx bx-paper-plane'></i></button>
+                </form>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-modal" onclick="if(event.target==this)closeSettings()">
+        <div class="modal-content">
+            <h3><i class='bx bx-slider-alt'></i> Settings</h3>
+            <div class="setting-group">
+                <label>Appearance</label>
+                <select id="theme-select" onchange="applyTheme(this.value)">
+                    <option value="dark">Abyssal (Dark)</option>
+                    <option value="light">Celestial (Light)</option>
+                </select>
+            </div>
+            <button class="nav-btn" onclick="exportChat()"><i class='bx bx-download'></i> Export Log (.md)</button>
+            <button class="nav-btn" onclick="clearMemory()" style="color: #ef4444;"><i class='bx bx-trash'></i> Clear Memory</button>
+            <button class="nav-btn close-modal-btn" onclick="closeSettings()">Save & Close</button>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
-
 </html>
