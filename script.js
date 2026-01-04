@@ -9,9 +9,11 @@ const clearChatButton = document.getElementById("deleteButton");
 let currentUserMessage = null;
 let isGeneratingResponse = false;
 
-// Replace with your actual Google API key
+// Replace with YOUR Google API key
 const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs";
-const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${GOOGLE_API_KEY}`;
+
+// ✅ FIXED: Updated to correct Gemini 1.5 Flash model
+const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GOOGLE_API_KEY}`;
 
 // Load saved data from local storage
 const loadSavedChatHistory = () => {
@@ -97,23 +99,25 @@ const showTypingEffect = (rawText, htmlText, messageElement, incomingMessageElem
     }, 75);
 };
 
-// Main API request function
+// Main API request function with proper error handling
 const requestApiResponse = async (incomingMessageElement) => {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
 
     try {
         console.log("🚀 Sending request to API...");
         console.log("📝 User message:", currentUserMessage);
-        console.log("🔑 API Key exists:", !!GOOGLE_API_KEY);
         console.log("🌐 API URL:", API_REQUEST_URL);
 
         const response = await fetch(API_REQUEST_URL, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { 
+                "Content-Type": "application/json"
+            },
             body: JSON.stringify({
                 contents: [{ 
-                    role: "user", 
-                    parts: [{ text: currentUserMessage }] 
+                    parts: [{ 
+                        text: currentUserMessage 
+                    }] 
                 }]
             }),
         });
@@ -124,19 +128,28 @@ const requestApiResponse = async (incomingMessageElement) => {
         console.log("📦 Response data:", responseData);
 
         if (!response.ok) {
-            if (response.status === 403) {
-                throw new Error("API Key invalid or quota exceeded. Please check your Google Cloud Console.");
-            } else if (response.status === 400) {
-                throw new Error("Bad request. Check your API endpoint and request format.");
+            // Handle specific error codes
+            if (response.status === 400) {
+                const errorMsg = responseData.error?.message || "Bad request";
+                throw new Error(`API Error: ${errorMsg}`);
+            } else if (response.status === 403) {
+                throw new Error("API Key invalid or quota exceeded. Get a new key from https://makersuite.google.com/app/apikey");
             } else if (response.status === 404) {
-                throw new Error("Model not found. The API endpoint may have changed.");
+                throw new Error("Model not found. Please check the API documentation for the correct model name.");
+            } else if (response.status === 429) {
+                throw new Error("Rate limit exceeded. Please wait a moment and try again.");
+            } else if (response.status === 500) {
+                throw new Error("Google API server error. Please try again in a moment.");
             }
             throw new Error(responseData.error?.message || `API Error: ${response.status}`);
         }
 
+        // Extract the response text
         const responseText = responseData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        
         if (!responseText) {
-            throw new Error("Invalid API response - no text content received.");
+            console.error("Invalid response structure:", responseData);
+            throw new Error("No response text received from API");
         }
 
         const parsedApiResponse = marked.parse(responseText);
@@ -144,6 +157,7 @@ const requestApiResponse = async (incomingMessageElement) => {
 
         showTypingEffect(rawApiResponse, parsedApiResponse, messageTextElement, incomingMessageElement);
 
+        // Save conversation to localStorage
         let savedConversations = JSON.parse(localStorage.getItem("saved-api-chats")) || [];
         savedConversations.push({
             userMessage: currentUserMessage,
@@ -157,10 +171,13 @@ const requestApiResponse = async (incomingMessageElement) => {
         console.error("❌ API Error:", error);
         isGeneratingResponse = false;
         
+        // Display user-friendly error messages
         if (error.message.includes("Failed to fetch")) {
-            messageTextElement.innerText = "❌ Network error. Please check your internet connection and try again.";
+            messageTextElement.innerText = "❌ Network error. Please check your internet connection.";
+        } else if (error.name === "TypeError") {
+            messageTextElement.innerText = "❌ Connection error. Make sure you're running this on a local server (not file://).";
         } else {
-            messageTextElement.innerText = `❌ Error: ${error.message}`;
+            messageTextElement.innerText = `❌ ${error.message}`;
         }
         
         messageTextElement.closest(".message").classList.add("message--error");
@@ -172,6 +189,9 @@ const requestApiResponse = async (incomingMessageElement) => {
 const addCopyButtonToCodeBlocks = () => {
     const codeBlocks = document.querySelectorAll('pre');
     codeBlocks.forEach((block) => {
+        // Prevent adding duplicate buttons
+        if (block.querySelector('.code__copy-btn')) return;
+
         const codeElement = block.querySelector('code');
         let language = [...codeElement.classList].find(cls => cls.startsWith('language-'))?.replace('language-', '') || 'Text';
 
@@ -247,6 +267,7 @@ const handleOutgoingMessage = () => {
     setTimeout(displayLoadingAnimation, 500);
 };
 
+// Theme toggle functionality
 themeToggleButton.addEventListener('click', () => {
     const isLightTheme = document.body.classList.toggle("light_mode");
     localStorage.setItem("themeColor", isLightTheme ? "light_mode" : "dark_mode");
@@ -255,6 +276,7 @@ themeToggleButton.addEventListener('click', () => {
     themeToggleButton.querySelector("i").className = newIconClass;
 });
 
+// Clear chat history
 clearChatButton.addEventListener('click', () => {
     if (confirm("Are you sure you want to delete all chat history?")) {
         localStorage.removeItem("saved-api-chats");
@@ -264,6 +286,7 @@ clearChatButton.addEventListener('click', () => {
     }
 });
 
+// Handle suggestion clicks
 suggestionItems.forEach(suggestion => {
     suggestion.addEventListener('click', () => {
         currentUserMessage = suggestion.querySelector(".suggests__item-text").innerText;
@@ -271,9 +294,11 @@ suggestionItems.forEach(suggestion => {
     });
 });
 
+// Handle form submission
 messageForm.addEventListener('submit', (e) => {
     e.preventDefault();
     handleOutgoingMessage();
 });
 
+// Load chat history on page load
 loadSavedChatHistory();
