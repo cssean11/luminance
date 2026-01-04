@@ -3,16 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luminance</title>
+    <title>Luminance 3.4 | Vision AI</title>
     
     <link rel="icon" type="image/png" sizes="32x32" href="Logo.png?v=1">
-    
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
-    <link rel="stylesheet" href="style.css">
     
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
+    <link rel="stylesheet" href="style.css">
 </head>
 <body data-theme="dark">
 
@@ -29,7 +29,7 @@
     <main id="main-wrapper">
         <section class="hero-banner">
             <h1>LUMINANCE</h1>
-            <p>Powered by Primordial Fragments</p>
+            <p style="font-size: 0.7rem; opacity: 0.6; letter-spacing: 2px;">VISION AI ASSISTANT</p>
         </section>
 
         <div id="chat-window"></div>
@@ -38,7 +38,7 @@
             <div class="input-container">
                 <div id="preview-bar" class="preview-bar">
                     <img id="img-preview" class="preview-img">
-                    <span id="preview-text">Ready to analyze...</span>
+                    <span style="font-size: 0.75rem; color: var(--text-dim); flex: 1;">Ready to analyze...</span>
                     <button onclick="clearImage()" class="icon-btn" style="padding: 2px;"><i class='bx bx-x-circle' style="color:#ef4444"></i></button>
                 </div>
                 <form id="chat-form" class="form-box full-round">
@@ -55,9 +55,9 @@
 
     <div id="settings-modal" onclick="if(event.target==this)closeSettings()">
         <div class="modal-content">
-            <h3><i class='bx bx-slider-alt'></i> Settings</h3>
-            <div class="setting-group">
-                <label>Appearance</label>
+            <h3 style="margin-bottom: 1rem;"><i class='bx bx-slider-alt'></i> Settings</h3>
+            <div style="margin-bottom: 1.5rem;">
+                <label style="font-size: 0.8rem; color: var(--text-dim);">Appearance</label>
                 <select id="theme-select" onchange="applyTheme(this.value)">
                     <option value="dark">Abyssal (Dark)</option>
                     <option value="light">Celestial (Light)</option>
@@ -65,7 +65,7 @@
             </div>
             <button class="nav-btn" onclick="exportChat()"><i class='bx bx-download'></i> Export Log (.md)</button>
             <button class="nav-btn" onclick="clearMemory()" style="color: #ef4444;"><i class='bx bx-trash'></i> Clear Memory</button>
-            <button class="nav-btn close-modal-btn" onclick="closeSettings()">Save & Close</button>
+            <button class="nav-btn" style="background: var(--primary); color: white; border: none; margin-top: 15px;" onclick="closeSettings()">Save & Close</button>
         </div>
     </div>
 
