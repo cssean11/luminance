@@ -10,7 +10,7 @@ let currentUserMessage = null;
 let isGeneratingResponse = false;
 
 // ⚠️ WARNING: Get a new API key and use environment variables in production!
-const GOOGLE_API_KEY = "YOUR_NEW_API_KEY_HERE"; // Replace with new key
+const GOOGLE_API_KEY = "AIzaSyDHGJ3gq6U3G4X9KpUsQmFjUZwR1ZfBYNs"; // Replace with new key
 const API_REQUEST_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${GOOGLE_API_KEY}`;
 
 // Load saved data from local storage
@@ -285,3 +285,4 @@ messageForm.addEventListener('submit', (e) => {
 });
 
 loadSavedChatHistory();
+
