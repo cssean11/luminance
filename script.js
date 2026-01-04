@@ -6,11 +6,9 @@ let selectedBase64 = null;
 let chatHistory = JSON.parse(localStorage.getItem('lum_hist')) || [];
 let sessionLog = [];
 
-// --- IMAGE CORE ---
+// Image Handling
 function handleImageUpload(file) {
     if (!file || !file.type.startsWith('image/')) return;
-    if (file.size > 4 * 1024 * 1024) { alert("File too large (Max 4MB)"); return; }
-
     const reader = new FileReader();
     reader.onload = (ev) => {
         selectedBase64 = ev.target.result;
@@ -23,10 +21,14 @@ function handleImageUpload(file) {
 
 document.getElementById('file-input').onchange = (e) => handleImageUpload(e.target.files[0]);
 
+// Paste Image Functionality
 window.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (const item of items) {
-        if (item.type.indexOf('image') !== -1) handleImageUpload(item.getAsFile());
+        if (item.type.indexOf('image') !== -1) {
+            const blob = item.getAsFile();
+            handleImageUpload(blob);
+        }
     }
 });
 
@@ -37,7 +39,7 @@ function clearImage() {
     document.getElementById('file-input').value = '';
 }
 
-// --- UI & THEME ---
+// Settings Logic
 function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
 function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 function applyTheme(t) { document.body.setAttribute('data-theme', t); localStorage.setItem('lum_theme', t); }
@@ -52,44 +54,40 @@ function addMessage(text, isUser, img = null) {
     const avatarImg = isUser ? 'profile.png' : 'Gemini.png';
     let contentHtml = img ? `<img src="${img}" class="msg-img">` : '';
     contentHtml += `<div>${isUser ? text : marked.parse(text)}</div>`;
-    div.innerHTML = `<img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}';"><div class="bubble">${contentHtml}</div>`;
+    div.innerHTML = `<img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}'"><div class="bubble">${contentHtml}</div>`;
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
     sessionLog.push(`${isUser?'User':'AI'}: ${text}`);
+    return div;
 }
 
-// --- SEND LOGIC ---
 document.getElementById('chat-form').onsubmit = async (e) => {
     e.preventDefault();
     const input = document.getElementById('user-input');
     const prompt = input.value.trim();
-    if (!prompt && !selectedBase64) return;
+    if(!prompt && !selectedBase64) return;
 
     const imgToSend = selectedBase64;
     addMessage(prompt, true, imgToSend);
     
-    if (prompt) {
+    if(prompt) {
         chatHistory.unshift(prompt.substring(0, 25));
-        if (chatHistory.length > 10) chatHistory.pop();
+        if(chatHistory.length > 10) chatHistory.pop();
         localStorage.setItem('lum_hist', JSON.stringify(chatHistory));
         renderHistory();
     }
-    
     input.value = '';
     clearImage();
 
-    // Show Rolling Loading State
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = `message ai-msg`;
-    loadingDiv.innerHTML = `
-        <img src="Gemini.png" class="avatar rolling" onerror="this.src='https://ui-avatars.com/api/?name=L';">
-        <div class="bubble">Consulting the Ley Lines...</div>
-    `;
-    chatWindow.appendChild(loadingDiv);
+    // --- THINKING STATE WITH SPINNING ICON ---
+    const thinkingDiv = document.createElement('div');
+    thinkingDiv.className = `message ai-msg`;
+    thinkingDiv.innerHTML = `<img src="Gemini.png" class="avatar spinning" onerror="this.src='https://ui-avatars.com/api/?name=L'"><div class="bubble">Thinking...</div>`;
+    chatWindow.appendChild(thinkingDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 
-    let content = [{ type: "text", text: prompt || "Describe this." }];
-    if (imgToSend) content.push({ type: "image_url", image_url: { url: imgToSend } });
+    let content = [{ type: "text", text: prompt || "Analyze this." }];
+    if(imgToSend) content.push({ type: "image_url", image_url: { url: imgToSend } });
 
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -98,15 +96,19 @@ document.getElementById('chat-form').onsubmit = async (e) => {
             body: JSON.stringify({ model: "google/gemini-2.0-flash-001", messages: [{ role: "user", content }] })
         });
         const data = await res.json();
-        chatWindow.removeChild(loadingDiv);
+        
+        // Remove the thinking placeholder
+        chatWindow.removeChild(thinkingDiv);
+        
+        // Add the actual response
         addMessage(data.choices[0].message.content, false);
     } catch {
-        chatWindow.removeChild(loadingDiv);
-        addMessage("Ley Line error: Connection failed.", false);
+        chatWindow.removeChild(thinkingDiv);
+        addMessage("Ley Line error.", false);
     }
 };
 
-function newChat() { chatWindow.innerHTML = ''; addMessage("The Ley Lines are clear. How may I assist?", false); }
+function newChat() { chatWindow.innerHTML = ''; addMessage("Greetings, Traveler. I am Luminance. Use the image icon to show me something, paste an image, or just type a message.", false); }
 function clearMemory() { localStorage.removeItem('lum_hist'); chatHistory = []; renderHistory(); closeSettings(); }
 function exportChat() {
     const blob = new Blob([sessionLog.join('\n\n')], { type: 'text/markdown' });
@@ -116,8 +118,4 @@ function exportChat() {
     a.click();
 }
 
-window.onload = () => {
-    applyTheme(localStorage.getItem('lum_theme') || 'dark');
-    renderHistory();
-    newChat();
-};
+window.onload = () => { applyTheme(localStorage.getItem('lum_theme') || 'dark'); renderHistory(); newChat(); };
