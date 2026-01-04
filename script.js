@@ -6,15 +6,10 @@ let selectedBase64 = null;
 let chatHistory = JSON.parse(localStorage.getItem('lum_hist')) || [];
 let sessionLog = [];
 
-// --- IMAGE HANDLING ---
+// --- IMAGE CORE ---
 function handleImageUpload(file) {
     if (!file || !file.type.startsWith('image/')) return;
-    
-    // Size check (Max 4MB)
-    if (file.size > 4 * 1024 * 1024) { 
-        alert("The image is too large for the Ley Lines. Max 4MB."); 
-        return; 
-    }
+    if (file.size > 4 * 1024 * 1024) { alert("File too large (Max 4MB)"); return; }
 
     const reader = new FileReader();
     reader.onload = (ev) => {
@@ -26,16 +21,12 @@ function handleImageUpload(file) {
     reader.readAsDataURL(file);
 }
 
-// Upload via Button
 document.getElementById('file-input').onchange = (e) => handleImageUpload(e.target.files[0]);
 
-// Upload via Paste (Ctrl+V)
 window.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (const item of items) {
-        if (item.type.indexOf('image') !== -1) {
-            handleImageUpload(item.getAsFile());
-        }
+        if (item.type.indexOf('image') !== -1) handleImageUpload(item.getAsFile());
     }
 });
 
@@ -46,39 +37,28 @@ function clearImage() {
     document.getElementById('file-input').value = '';
 }
 
-// --- SIDEBAR & THEME ---
+// --- UI & THEME ---
 function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
 function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
-function applyTheme(t) { 
-    document.body.setAttribute('data-theme', t); 
-    localStorage.setItem('lum_theme', t); 
-}
+function applyTheme(t) { document.body.setAttribute('data-theme', t); localStorage.setItem('lum_theme', t); }
 
 function renderHistory() {
     historyList.innerHTML = chatHistory.map(h => `<li class="history-item"><i class='bx bx-history'></i> ${h}</li>`).join('');
 }
 
-// --- MESSAGING ---
 function addMessage(text, isUser, img = null) {
     const div = document.createElement('div');
     div.className = `message ${isUser ? 'user-msg' : 'ai-msg'}`;
     const avatarImg = isUser ? 'profile.png' : 'Gemini.png';
-    
     let contentHtml = img ? `<img src="${img}" class="msg-img">` : '';
     contentHtml += `<div>${isUser ? text : marked.parse(text)}</div>`;
-    
-    // Avatar Fallback logic included
-    div.innerHTML = `
-        <img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}';">
-        <div class="bubble">${contentHtml}</div>
-    `;
-    
+    div.innerHTML = `<img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}';"><div class="bubble">${contentHtml}</div>`;
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
-    sessionLog.push(`${isUser ? 'User' : 'AI'}: ${text}`);
+    sessionLog.push(`${isUser?'User':'AI'}: ${text}`);
 }
 
-// Submit Logic
+// --- SEND LOGIC ---
 document.getElementById('chat-form').onsubmit = async (e) => {
     e.preventDefault();
     const input = document.getElementById('user-input');
@@ -88,7 +68,6 @@ document.getElementById('chat-form').onsubmit = async (e) => {
     const imgToSend = selectedBase64;
     addMessage(prompt, true, imgToSend);
     
-    // Update Sidebar History
     if (prompt) {
         chatHistory.unshift(prompt.substring(0, 25));
         if (chatHistory.length > 10) chatHistory.pop();
@@ -99,7 +78,7 @@ document.getElementById('chat-form').onsubmit = async (e) => {
     input.value = '';
     clearImage();
 
-    // Create Temporary Loading Message with Rolling Icon
+    // Show Rolling Loading State
     const loadingDiv = document.createElement('div');
     loadingDiv.className = `message ai-msg`;
     loadingDiv.innerHTML = `
@@ -109,49 +88,31 @@ document.getElementById('chat-form').onsubmit = async (e) => {
     chatWindow.appendChild(loadingDiv);
     chatWindow.scrollTop = chatWindow.scrollHeight;
 
-    // Prepare API Content
-    let content = [{ type: "text", text: prompt || "Observe and describe this image." }];
+    let content = [{ type: "text", text: prompt || "Describe this." }];
     if (imgToSend) content.push({ type: "image_url", image_url: { url: imgToSend } });
 
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
-            headers: { 
-                "Authorization": `Bearer ${API_KEY}`, 
-                "Content-Type": "application/json" 
-            },
-            body: JSON.stringify({ 
-                model: "google/gemini-2.0-flash-001", 
-                messages: [{ role: "user", content }] 
-            })
+            headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: "google/gemini-2.0-flash-001", messages: [{ role: "user", content }] })
         });
         const data = await res.json();
-        
-        chatWindow.removeChild(loadingDiv); // Remove loading state
+        chatWindow.removeChild(loadingDiv);
         addMessage(data.choices[0].message.content, false);
     } catch {
         chatWindow.removeChild(loadingDiv);
-        addMessage("Ley Line error: Connection failed. Ensure you are hosted on GitHub Pages or a local server.", false);
+        addMessage("Ley Line error: Connection failed.", false);
     }
 };
 
-function newChat() { 
-    chatWindow.innerHTML = ''; 
-    addMessage("The Ley Lines have been reset. How may I assist you, Traveler?", false); 
-}
-
-function clearMemory() { 
-    localStorage.removeItem('lum_hist'); 
-    chatHistory = []; 
-    renderHistory(); 
-    closeSettings(); 
-}
-
+function newChat() { chatWindow.innerHTML = ''; addMessage("The Ley Lines are clear. How may I assist?", false); }
+function clearMemory() { localStorage.removeItem('lum_hist'); chatHistory = []; renderHistory(); closeSettings(); }
 function exportChat() {
     const blob = new Blob([sessionLog.join('\n\n')], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'Luminance_Conversation.md';
+    a.download = 'Luminance_Log.md';
     a.click();
 }
 
