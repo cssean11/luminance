@@ -6,9 +6,16 @@ let selectedBase64 = null;
 let chatHistory = JSON.parse(localStorage.getItem('lum_hist')) || [];
 let sessionLog = [];
 
-// Image Processing
+// --- IMAGE HANDLING ---
 function handleImageUpload(file) {
     if (!file || !file.type.startsWith('image/')) return;
+    
+    // Size check (Max 4MB)
+    if (file.size > 4 * 1024 * 1024) { 
+        alert("The image is too large for the Ley Lines. Max 4MB."); 
+        return; 
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
         selectedBase64 = ev.target.result;
@@ -19,7 +26,10 @@ function handleImageUpload(file) {
     reader.readAsDataURL(file);
 }
 
-// Shortcut: Paste Image from Clipboard
+// Upload via Button
+document.getElementById('file-input').onchange = (e) => handleImageUpload(e.target.files[0]);
+
+// Upload via Paste (Ctrl+V)
 window.addEventListener('paste', (e) => {
     const items = (e.clipboardData || e.originalEvent.clipboardData).items;
     for (const item of items) {
@@ -36,7 +46,7 @@ function clearImage() {
     document.getElementById('file-input').value = '';
 }
 
-// Settings & UI
+// --- SIDEBAR & THEME ---
 function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
 function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
 function applyTheme(t) { 
@@ -48,21 +58,27 @@ function renderHistory() {
     historyList.innerHTML = chatHistory.map(h => `<li class="history-item"><i class='bx bx-history'></i> ${h}</li>`).join('');
 }
 
-// Messaging Logic
+// --- MESSAGING ---
 function addMessage(text, isUser, img = null) {
     const div = document.createElement('div');
     div.className = `message ${isUser ? 'user-msg' : 'ai-msg'}`;
     const avatarImg = isUser ? 'profile.png' : 'Gemini.png';
+    
     let contentHtml = img ? `<img src="${img}" class="msg-img">` : '';
     contentHtml += `<div>${isUser ? text : marked.parse(text)}</div>`;
     
-    div.innerHTML = `<img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}'"><div class="bubble">${contentHtml}</div>`;
+    // Avatar Fallback logic included
+    div.innerHTML = `
+        <img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}';">
+        <div class="bubble">${contentHtml}</div>
+    `;
     
     chatWindow.appendChild(div);
     chatWindow.scrollTop = chatWindow.scrollHeight;
     sessionLog.push(`${isUser ? 'User' : 'AI'}: ${text}`);
 }
 
+// Submit Logic
 document.getElementById('chat-form').onsubmit = async (e) => {
     e.preventDefault();
     const input = document.getElementById('user-input');
@@ -72,6 +88,7 @@ document.getElementById('chat-form').onsubmit = async (e) => {
     const imgToSend = selectedBase64;
     addMessage(prompt, true, imgToSend);
     
+    // Update Sidebar History
     if (prompt) {
         chatHistory.unshift(prompt.substring(0, 25));
         if (chatHistory.length > 10) chatHistory.pop();
@@ -82,25 +99,45 @@ document.getElementById('chat-form').onsubmit = async (e) => {
     input.value = '';
     clearImage();
 
-    let content = [{ type: "text", text: prompt || "Analyze this image." }];
+    // Create Temporary Loading Message with Rolling Icon
+    const loadingDiv = document.createElement('div');
+    loadingDiv.className = `message ai-msg`;
+    loadingDiv.innerHTML = `
+        <img src="Gemini.png" class="avatar rolling" onerror="this.src='https://ui-avatars.com/api/?name=L';">
+        <div class="bubble">Consulting the Ley Lines...</div>
+    `;
+    chatWindow.appendChild(loadingDiv);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    // Prepare API Content
+    let content = [{ type: "text", text: prompt || "Observe and describe this image." }];
     if (imgToSend) content.push({ type: "image_url", image_url: { url: imgToSend } });
 
     try {
         const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
             method: "POST",
-            headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ model: "google/gemini-2.0-flash-001", messages: [{ role: "user", content }] })
+            headers: { 
+                "Authorization": `Bearer ${API_KEY}`, 
+                "Content-Type": "application/json" 
+            },
+            body: JSON.stringify({ 
+                model: "google/gemini-2.0-flash-001", 
+                messages: [{ role: "user", content }] 
+            })
         });
         const data = await res.json();
+        
+        chatWindow.removeChild(loadingDiv); // Remove loading state
         addMessage(data.choices[0].message.content, false);
     } catch {
-        addMessage("Ley Line error: Connection failed.", false);
+        chatWindow.removeChild(loadingDiv);
+        addMessage("Ley Line error: Connection failed. Ensure you are hosted on GitHub Pages or a local server.", false);
     }
 };
 
 function newChat() { 
     chatWindow.innerHTML = ''; 
-    addMessage("Greetings, Traveler. I am Luminance. Paste an image or type a message to begin.", false); 
+    addMessage("The Ley Lines have been reset. How may I assist you, Traveler?", false); 
 }
 
 function clearMemory() { 
@@ -114,7 +151,7 @@ function exportChat() {
     const blob = new Blob([sessionLog.join('\n\n')], { type: 'text/markdown' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = 'ChatLog.md';
+    a.download = 'Luminance_Conversation.md';
     a.click();
 }
 
