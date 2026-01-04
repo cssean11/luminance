@@ -11,13 +11,14 @@ const state = {
     abortController: null
 };
 
-// DeepSeek API Configuration
-const DEEPSEEK_CONFIG = {
-    API_KEY: "sk-a22270c199d34c8b969a2081607a8c37",
-    API_URL: "https://api.deepseek.com/v1/chat/completions",
-    MODEL: "deepseek-chat", // or "deepseek-coder" for coding tasks
+// Claude API Configuration
+const CLAUDE_CONFIG = {
+    API_KEY: "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",
+    API_URL: "https://api.anthropic.com/v1/messages",
+    MODEL: "claude-3-5-sonnet-20241022", // or "claude-3-haiku-20240307", "claude-3-opus-20240229"
     MAX_TOKENS: 4096,
-    TEMPERATURE: 0.7
+    TEMPERATURE: 0.7,
+    VERSION: "2023-06-01" // Required for Anthropic API
 };
 
 // Load saved data from local storage
@@ -41,8 +42,8 @@ const loadSavedChatHistory = () => {
         const outgoingMessageElement = createChatMessageElement(userMessageHtml, "message--outgoing");
         chatHistoryContainer.appendChild(outgoingMessageElement);
 
-        // DeepSeek response format
-        const responseText = conversation.apiResponse?.choices?.[0]?.message?.content || 
+        // Claude response format
+        const responseText = conversation.apiResponse?.content?.[0]?.text || 
                              conversation.apiResponse?.text || 
                              "No response available";
         const parsedApiResponse = marked.parse(responseText);
@@ -50,7 +51,7 @@ const loadSavedChatHistory = () => {
 
         const responseHtml = `
            <div class="message__content">
-                <img class="message__avatar" src="assets/Gemini.png" alt="AI avatar">
+                <img class="message__avatar" src="assets/claude.png" alt="AI avatar">
                 <p class="message__text"></p>
                 <div class="message__loading-indicator hide">
                     <div class="message__loading-bar"></div>
@@ -107,38 +108,34 @@ const showTypingEffect = (rawText, htmlText, messageElement, incomingMessageElem
     }, 75);
 };
 
-// DeepSeek API request function
+// Claude API request function
 const requestApiResponse = async (incomingMessageElement) => {
     const messageTextElement = incomingMessageElement.querySelector(".message__text");
 
     try {
-        console.log("🚀 Sending request to DeepSeek API...");
+        console.log("🚀 Sending request to Claude API...");
         console.log("📝 User message:", state.currentUserMessage);
         
         // Create AbortController for request cancellation
         state.abortController = new AbortController();
 
-        const response = await fetch(DEEPSEEK_CONFIG.API_URL, {
+        const response = await fetch(CLAUDE_CONFIG.API_URL, {
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": `Bearer ${DEEPSEEK_CONFIG.API_KEY}`
+                "x-api-key": CLAUDE_CONFIG.API_KEY,
+                "anthropic-version": CLAUDE_CONFIG.VERSION
             },
             body: JSON.stringify({
-                model: DEEPSEEK_CONFIG.MODEL,
+                model: CLAUDE_CONFIG.MODEL,
                 messages: [
-                    {
-                        role: "system",
-                        content: "You are a helpful AI assistant. Provide clear, concise, and accurate responses. Format code snippets properly."
-                    },
                     {
                         role: "user",
                         content: state.currentUserMessage
                     }
                 ],
-                max_tokens: DEEPSEEK_CONFIG.MAX_TOKENS,
-                temperature: DEEPSEEK_CONFIG.TEMPERATURE,
-                stream: false
+                max_tokens: CLAUDE_CONFIG.MAX_TOKENS,
+                temperature: CLAUDE_CONFIG.TEMPERATURE
             }),
             signal: state.abortController.signal
         });
@@ -147,27 +144,31 @@ const requestApiResponse = async (incomingMessageElement) => {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const errorMessage = errorData.error?.message || `HTTP ${response.status}`;
+            const errorMessage = errorData.error?.message || errorData.error?.type || `HTTP ${response.status}`;
             
             if (response.status === 401) {
-                throw new Error("DeepSeek API key is invalid. Please check your key at https://platform.deepseek.com/api_keys");
+                throw new Error("Claude API key is invalid. Please check your key at https://console.anthropic.com/");
             } else if (response.status === 429) {
                 throw new Error("Rate limit exceeded. Please wait a moment and try again.");
             } else if (response.status === 402) {
-                throw new Error("Insufficient credits. Check your DeepSeek account balance.");
+                throw new Error("Insufficient credits. Check your Claude account balance.");
+            } else if (errorData.error?.type === "authentication_error") {
+                throw new Error("Authentication failed. Please check your API key.");
+            } else if (errorData.error?.type === "invalid_request_error") {
+                throw new Error("Invalid request. Please check your input.");
             }
-            throw new Error(`DeepSeek API Error: ${errorMessage}`);
+            throw new Error(`Claude API Error: ${errorMessage}`);
         }
 
         const responseData = await response.json();
         console.log("📦 Response data:", responseData);
 
-        // DeepSeek response format
-        const responseText = responseData?.choices?.[0]?.message?.content;
+        // Claude response format
+        const responseText = responseData?.content?.[0]?.text;
         
         if (!responseText) {
             console.error("Invalid response structure:", responseData);
-            throw new Error("No response text received from DeepSeek API");
+            throw new Error("No response text received from Claude API");
         }
 
         const parsedApiResponse = marked.parse(responseText);
@@ -184,10 +185,10 @@ const requestApiResponse = async (incomingMessageElement) => {
         });
         localStorage.setItem("saved-api-chats", JSON.stringify(savedConversations));
 
-        console.log("✅ DeepSeek response received successfully!");
+        console.log("✅ Claude response received successfully!");
 
     } catch (error) {
-        console.error("❌ DeepSeek API Error:", error);
+        console.error("❌ Claude API Error:", error);
         state.isGeneratingResponse = false;
         
         if (error.name === 'AbortError') {
@@ -246,7 +247,7 @@ const addCopyButtonToCodeBlocks = () => {
 const displayLoadingAnimation = () => {
     const loadingHtml = `
         <div class="message__content">
-            <img class="message__avatar" src="assets/Gemini.png" alt="AI avatar">
+            <img class="message__avatar" src="assets/claude.png" alt="AI avatar">
             <p class="message__text"></p>
             <div class="message__loading-indicator">
                 <div class="message__loading-bar"></div>
@@ -336,31 +337,45 @@ document.addEventListener('keydown', (e) => {
 // Load chat history on page load
 loadSavedChatHistory();
 
-// Test the DeepSeek API key on page load
+// Test the Claude API key on page load
 window.addEventListener('load', () => {
-    console.log("🔑 Using DeepSeek API Key:", DEEPSEEK_CONFIG.API_KEY.substring(0, 10) + "...");
-    console.log("🤖 Selected model:", DEEPSEEK_CONFIG.MODEL);
-    console.log("🌐 API URL:", DEEPSEEK_CONFIG.API_URL);
+    console.log("🔑 Using Claude API Key:", CLAUDE_CONFIG.API_KEY.substring(0, 15) + "...");
+    console.log("🤖 Selected model:", CLAUDE_CONFIG.MODEL);
+    console.log("🌐 API URL:", CLAUDE_CONFIG.API_URL);
+    console.log("📅 API Version:", CLAUDE_CONFIG.VERSION);
     
     // Quick test of the API key
-    testDeepSeekAPIKey();
+    testClaudeAPIKey();
 });
 
-// Test function for DeepSeek API key
-async function testDeepSeekAPIKey() {
+// Test function for Claude API key
+async function testClaudeAPIKey() {
     try {
-        console.log("🧪 Testing DeepSeek API key...");
-        const response = await fetch('https://api.deepseek.com/v1/models', {
-            headers: {
-                'Authorization': `Bearer ${DEEPSEEK_CONFIG.API_KEY}`
-            }
+        console.log("🧪 Testing Claude API key...");
+        const response = await fetch(CLAUDE_CONFIG.API_URL, {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "x-api-key": CLAUDE_CONFIG.API_KEY,
+                "anthropic-version": CLAUDE_CONFIG.VERSION
+            },
+            body: JSON.stringify({
+                model: CLAUDE_CONFIG.MODEL,
+                messages: [
+                    {
+                        role: "user",
+                        content: "Hello"
+                    }
+                ],
+                max_tokens: 10
+            })
         });
         
         if (response.ok) {
-            console.log("✅ DeepSeek API key is VALID!");
+            console.log("✅ Claude API key is VALID!");
         } else {
             const error = await response.json();
-            console.error("❌ DeepSeek API key is INVALID:", error.error?.message);
+            console.error("❌ Claude API key is INVALID:", error.error?.message || error.error?.type);
         }
     } catch (error) {
         console.error("❌ Test failed:", error.message);
