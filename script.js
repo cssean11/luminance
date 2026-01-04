@@ -1,101 +1,125 @@
-const OPENROUTER_API_KEY = "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";
-const API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const chatWindow = document.getElementById('chat-window');
+const historyList = document.getElementById('history-list');
+const API_KEY = "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";
 
-const promptForm = document.querySelector('.prompt__form');
-const promptInput = document.querySelector('.prompt__form-input');
-const chatContainer = document.querySelector('.chats');
-const themeToggler = document.getElementById('themeToggler');
-const deleteButton = document.getElementById('deleteButton');
+let selectedBase64 = null;
+let chatHistory = JSON.parse(localStorage.getItem('lum_hist')) || [];
+let sessionLog = [];
 
-// 1. Handle Theme Toggling
-themeToggler.addEventListener('click', () => {
-    document.body.classList.toggle('dark-theme');
-    const icon = themeToggler.querySelector('i');
-    icon.classList.toggle('bx-sun');
-    icon.classList.toggle('bx-moon');
-});
-
-// 2. Handle Deleting Chats
-deleteButton.addEventListener('click', () => {
-    if (confirm("Clear all messages?")) {
-        chatContainer.innerHTML = '';
-    }
-});
-
-// 3. Create Chat Bubble
-const createChatBubble = (content, className) => {
-    const div = document.createElement('div');
-    div.classList.add('chat', className);
-    // Using marked.parse to render Markdown (like bold text or code)
-    div.innerHTML = `
-        <div class="chat__content">
-            ${className === 'chat--incoming' ? '<b>AI:</b> ' : '<b>You:</b> '}
-            <div class="message-text">${marked.parse(content)}</div>
-        </div>
-    `;
-    chatContainer.appendChild(div);
-    chatContainer.scrollTo(0, chatContainer.scrollHeight);
-    return div;
-};
-
-// 4. Call OpenRouter API
-async function getResponse(userPrompt) {
-    try {
-        const response = await fetch(API_URL, {
-            method: "POST",
-            headers: {
-                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-                "Content-Type": "application/json",
-                "HTTP-Referer": window.location.origin, 
-                "X-Title": "Luminance 2.0"
-            },
-            body: JSON.stringify({
-                "model": "google/gemini-2.0-flash-001",
-                "messages": [{ "role": "user", "content": userPrompt }]
-            })
-        });
-
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error?.message || "API Error");
-
-        return data.choices[0].message.content;
-    } catch (error) {
-        console.error(error);
-        return "Sorry, I couldn't connect to Teyvat. Error: " + error.message;
-    }
+// Image Processing
+function handleImageUpload(file) {
+    if (!file || !file.type.startsWith('image/')) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        selectedBase64 = ev.target.result;
+        document.getElementById('img-preview').src = selectedBase64;
+        document.getElementById('preview-bar').style.display = 'flex';
+        document.getElementById('chat-form').classList.remove('full-round');
+    };
+    reader.readAsDataURL(file);
 }
 
-// 5. Handle Form Submission
-promptForm.addEventListener('submit', async (e) => {
+// Shortcut: Paste Image from Clipboard
+window.addEventListener('paste', (e) => {
+    const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+    for (const item of items) {
+        if (item.type.indexOf('image') !== -1) {
+            handleImageUpload(item.getAsFile());
+        }
+    }
+});
+
+function clearImage() {
+    selectedBase64 = null;
+    document.getElementById('preview-bar').style.display = 'none';
+    document.getElementById('chat-form').classList.add('full-round');
+    document.getElementById('file-input').value = '';
+}
+
+// Settings & UI
+function openSettings() { document.getElementById('settings-modal').style.display = 'flex'; }
+function closeSettings() { document.getElementById('settings-modal').style.display = 'none'; }
+function applyTheme(t) { 
+    document.body.setAttribute('data-theme', t); 
+    localStorage.setItem('lum_theme', t); 
+}
+
+function renderHistory() {
+    historyList.innerHTML = chatHistory.map(h => `<li class="history-item"><i class='bx bx-history'></i> ${h}</li>`).join('');
+}
+
+// Messaging Logic
+function addMessage(text, isUser, img = null) {
+    const div = document.createElement('div');
+    div.className = `message ${isUser ? 'user-msg' : 'ai-msg'}`;
+    const avatarImg = isUser ? 'profile.png' : 'Gemini.png';
+    let contentHtml = img ? `<img src="${img}" class="msg-img">` : '';
+    contentHtml += `<div>${isUser ? text : marked.parse(text)}</div>`;
+    
+    div.innerHTML = `<img src="${avatarImg}" class="avatar" onerror="this.src='https://ui-avatars.com/api/?name=${isUser?'U':'L'}'"><div class="bubble">${contentHtml}</div>`;
+    
+    chatWindow.appendChild(div);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    sessionLog.push(`${isUser ? 'User' : 'AI'}: ${text}`);
+}
+
+document.getElementById('chat-form').onsubmit = async (e) => {
     e.preventDefault();
-    const prompt = promptInput.value.trim();
-    if (!prompt) return;
+    const input = document.getElementById('user-input');
+    const prompt = input.value.trim();
+    if (!prompt && !selectedBase64) return;
 
-    // Add User Message
-    createChatBubble(prompt, 'chat--outgoing');
-    promptInput.value = '';
-
-    // Add Loading State
-    const loadingBubble = createChatBubble("Thinking...", 'chat--incoming');
-
-    // Get AI response
-    const aiResponse = await getResponse(prompt);
+    const imgToSend = selectedBase64;
+    addMessage(prompt, true, imgToSend);
     
-    // Replace loading text with actual response
-    loadingBubble.querySelector('.message-text').innerHTML = marked.parse(aiResponse);
+    if (prompt) {
+        chatHistory.unshift(prompt.substring(0, 25));
+        if (chatHistory.length > 10) chatHistory.pop();
+        localStorage.setItem('lum_hist', JSON.stringify(chatHistory));
+        renderHistory();
+    }
     
-    // Highlight any code blocks in the response
-    loadingBubble.querySelectorAll('pre code').forEach((block) => {
-        hljs.highlightElement(block);
-    });
-    
-    chatContainer.scrollTo(0, chatContainer.scrollHeight);
-});
+    input.value = '';
+    clearImage();
 
-// 6. Suggestion Chips logic
-document.querySelectorAll('.suggests__item').forEach(item => {
-    item.addEventListener('click', () => {
-        promptInput.value = item.querySelector('.suggests__item-text').innerText.trim();
-        promptInput.focus();
-    });
-});
+    let content = [{ type: "text", text: prompt || "Analyze this image." }];
+    if (imgToSend) content.push({ type: "image_url", image_url: { url: imgToSend } });
+
+    try {
+        const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${API_KEY}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ model: "google/gemini-2.0-flash-001", messages: [{ role: "user", content }] })
+        });
+        const data = await res.json();
+        addMessage(data.choices[0].message.content, false);
+    } catch {
+        addMessage("Ley Line error: Connection failed.", false);
+    }
+};
+
+function newChat() { 
+    chatWindow.innerHTML = ''; 
+    addMessage("Greetings, Traveler. I am Luminance. Paste an image or type a message to begin.", false); 
+}
+
+function clearMemory() { 
+    localStorage.removeItem('lum_hist'); 
+    chatHistory = []; 
+    renderHistory(); 
+    closeSettings(); 
+}
+
+function exportChat() {
+    const blob = new Blob([sessionLog.join('\n\n')], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ChatLog.md';
+    a.click();
+}
+
+window.onload = () => {
+    applyTheme(localStorage.getItem('lum_theme') || 'dark');
+    renderHistory();
+    newChat();
+};
