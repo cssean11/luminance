@@ -33,7 +33,7 @@ body { background: var(--bg-dark); color: var(--text-main); height: 100vh; displ
 /* Animations */
 @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } }
 @keyframes roll { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-.rolling { animation: roll 1s linear infinite; filter: drop-shadow(0 0 8px var(--primary)); }
+.rolling { animation: roll 1s linear infinite; filter: drop-shadow(0 0 5px var(--primary)); }
 
 /* Main Content */
 #main-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
@@ -53,9 +53,9 @@ body { background: var(--bg-dark); color: var(--text-main); height: 100vh; displ
 .bubble { padding: 1rem; border-radius: 12px; background: var(--bg-card); border: 1px solid var(--border); line-height: 1.6; }
 .user-msg .bubble { background: var(--accent); color: white; border: none; }
 .avatar { width: 38px; height: 38px; border-radius: 50%; border: 2px solid var(--primary); flex-shrink: 0; object-fit: cover; }
-.msg-img { max-width: 100%; max-height: 250px; border-radius: 10px; margin-bottom: 8px; display: block; border: 1px solid rgba(255,255,255,0.1); }
+.msg-img { max-width: 100%; max-height: 250px; border-radius: 10px; margin-bottom: 8px; display: block; }
 
-/* Input Styling */
+/* Input */
 .input-area { padding: 1.2rem; background: var(--bg-dark); border-top: 1px solid var(--border); }
 .input-container { max-width: 800px; margin: 0 auto; }
 .preview-bar { display: none; padding: 10px; background: var(--bg-sidebar); border: 1px solid var(--border); border-bottom: none; border-radius: 12px 12px 0 0; align-items: center; gap: 12px; }
@@ -67,7 +67,7 @@ input[type="text"] { flex: 1; background: transparent; border: none; color: var(
 .icon-btn { background: transparent; border: none; color: var(--text-dim); font-size: 1.4rem; cursor: pointer; padding: 8px; transition: 0.2s; }
 .send-btn { background: var(--primary); color: white; border-radius: 10px; padding: 6px 18px; font-weight: 600; cursor: pointer; border: none; }
 
-/* Modal Settings */
+/* Modal */
 #settings-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; backdrop-filter: blur(5px); }
 .modal-content { background: var(--bg-card); padding: 2rem; border-radius: 15px; width: 350px; border: 1px solid var(--border); }
 .setting-group { margin-bottom: 1.5rem; }
